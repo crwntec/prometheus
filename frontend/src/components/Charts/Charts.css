@@ -1,0 +1,23 @@
+.chart {
+    height: 25vh;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    padding: 1.5rem;
+}
+.date {
+    text-align: center;
+}
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+.fab {
+    position: fixed !important;
+    bottom: 2rem;
+    right: 2rem;
+    left: auto !important;
+    background-color: #007bff !important;
+    color: white !important;
+}
