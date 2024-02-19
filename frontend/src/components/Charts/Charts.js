@@ -34,9 +34,11 @@ export default function Charts({ logout }) {
   const COLORS_LESSONS = ["#12b546", "#f263df", "#b849a8", "#63e2f2"]; // Regular, Substituted, EVA, Free
   useEffect(() => {
     fetch(
-      `http://localhost:8080/statistics/${date}?weeks=${lookBack}&userID=${Cookies.get(
-        "userID"
-      )}`,
+      `${
+        process.env.NODE_ENV === "production"
+          ? process.env.API_BASE
+          : "http://localhost:8080"
+      }/statistics/${date}?weeks=${lookBack}&userID=${Cookies.get("userID")}`,
       {
         headers: {
           Authorization: "Bearer " + Cookies.get("token"),
