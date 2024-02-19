@@ -20,7 +20,7 @@ export default function Login({ setToken }) {
     return fetch(
       `${
         process.env.NODE_ENV === "production"
-          ? process.env.API_BASE
+          ? process.env.REACT_APP_API_BASE
           : "http://localhost:8080"
       }/login`,
       {

@@ -36,7 +36,7 @@ export default function Charts({ logout }) {
     fetch(
       `${
         process.env.NODE_ENV === "production"
-          ? process.env.API_BASE
+          ? process.env.REACT_APP_API_BASE
           : "http://localhost:8080"
       }/statistics/${date}?weeks=${lookBack}&userID=${Cookies.get("userID")}`,
       {
