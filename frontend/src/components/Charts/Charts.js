@@ -32,6 +32,8 @@ export default function Charts({ logout }) {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const COLORS_LESSONS = ["#12b546", "#f263df", "#b849a8", "#63e2f2"]; // Regular, Substituted, EVA, Free
+
+
   useEffect(() => {
     fetch(
       `${
@@ -54,7 +56,7 @@ export default function Charts({ logout }) {
         setData(data);
         setLoading(false);
       });
-  }, [date, lookBack, logout]);
+  }, [date, logout, lookBack]);
 
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
@@ -320,7 +322,10 @@ export default function Charts({ logout }) {
                 aria-label="Demo number input"
                 placeholder="Type a number…"
                 value={lookBack}
-                onChange={(event, val) => setLookBack(val)}
+                onChange={(event, val) => {
+                  setLookBack(val)
+                }
+                }
               />
               <WeekPicker lookBack={lookBack} day={date} setDate={setDate} />
             </Box>

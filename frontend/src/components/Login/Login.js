@@ -14,7 +14,7 @@ export default function Login({ setToken }) {
       password: e.target.password.value,
     });
     setToken(res.sessionID);
-    Cookies.set("userID", res.userID);
+    Cookies.set("userID", res.userID, {expires: 7});
   };
   const loginUser = async (credentials) => {
     return fetch(

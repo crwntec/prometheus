@@ -44,10 +44,10 @@ app.get("/lessons/:date", (req, res) => {
     }
   );
 });
-app.get("/statistics/:date", async (req, res) => {
+app.get("/statistics/:date", async (req, res) => {  
   const token = req.headers.authorization.split(" ")[1];
   const userID = req.query.userID;
-  if (!token || !userID) {
+  if (token == undefined || userID === 'undefined') {
     res.sendStatus(403);
     return;
   }
