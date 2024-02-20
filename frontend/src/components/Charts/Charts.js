@@ -56,33 +56,6 @@ export default function Charts({ logout }) {
       });
   }, [date, lookBack, logout]);
 
-  const RADIAN = Math.PI / 180;
-  const chartLabel = ({
-    cx,
-    cy,
-    midAngle,
-    innerRadius,
-    outerRadius,
-    percent,
-    index,
-  }) => {
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-    return (
-      <text
-        x={x}
-        y={y}
-        fill="white"
-        textAnchor={x > cx ? "start" : "end"}
-        dominantBaseline="central"
-      >
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    );
-  };
-
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
@@ -91,12 +64,11 @@ export default function Charts({ logout }) {
     top: "50%",
     left: "50%",
     transform: "translate(-50%, -50%)",
-    width: 400,
+    width: "80vw",
     bgcolor: "background.paper",
     boxShadow: 24,
     p: 4,
   };
-
   return (
     <div className="">
       {loading && (
@@ -109,10 +81,10 @@ export default function Charts({ logout }) {
           <Box sx={{ width: "100%" }}>
             <Grid
               container
-              rowSpacing={1}
-              columnSpacing={{ xs: 1, sm: 2, md: 3 }}
+              spacing={{ xs: 2, md: 3 }}
+              columns={{ xs: 4, md: 4 }}
             >
-              <Grid item xs={6}>
+              <Grid item xs={6} md={2}>
                 <div className="chart">
                   {data.lessons && <strong>Vertretungen nach Art</strong>}
                   <ResponsiveContainer>
@@ -122,8 +94,8 @@ export default function Charts({ logout }) {
                         dataKey="value"
                         data={data.lessons}
                         fill="#8884d8"
-                        labelLine={false}
-                        label={chartLabel}
+                        labelLine={true}
+                        label={(entry) => `${(entry.percent * 100).toFixed(0)}%`}
                       >
                         {data.lessons.map((entry, index) => (
                           <Cell
@@ -137,7 +109,7 @@ export default function Charts({ logout }) {
                   </ResponsiveContainer>
                 </div>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={6} md={2}>
                 <div className="chart">
                   {data.subjects && <strong>Vertretungen nach Fächern</strong>}
                   <ResponsiveContainer width="100%" height="100%">
@@ -185,7 +157,7 @@ export default function Charts({ logout }) {
                   </ResponsiveContainer>
                 </div>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={6} md={2}>
                 <div className="chart">
                   {data.teachers && <strong>Abwesenheit nach Lehrer</strong>}
                   <ResponsiveContainer width="100%" height="100%">
@@ -227,7 +199,7 @@ export default function Charts({ logout }) {
                   </ResponsiveContainer>
                 </div>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={6} md={2}>
                 <div className="chart">
                   {data.days && <strong>Ausfälle nach Tagen</strong>}
                   <ResponsiveContainer width="100%" height="100%">
@@ -283,7 +255,7 @@ export default function Charts({ logout }) {
                   </ResponsiveContainer>
                 </div>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={6} md={2}>
                 <div className="chart">
                   {data.days && <strong>Ausfälle nach Wochen</strong>}
                   <ResponsiveContainer width="100%" height="100%">
