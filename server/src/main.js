@@ -21,7 +21,9 @@ app.post("/login/", (req, res) => {
   client
     .init(req.body.username, req.body.password)
     .then((identifiers) => {
+      setTimeout(() => {
       res.send({sessionID: identifiers[0], userID: identifiers[1]})
+      }, 2000)
     });
   // .catch((error) => res.send(error));
 });

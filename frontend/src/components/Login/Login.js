@@ -5,14 +5,19 @@ import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Cookies from "js-cookie";
+import { CircularProgress } from "@mui/material";
 
 export default function Login({ setToken }) {
+  const [loading, setLoading] = React.useState(false);
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
+    setLoading(true);
     const res = await loginUser({
       username: e.target.username.value,
       password: e.target.password.value,
     });
+    setLoading(false);
     setToken(res.sessionID);
     Cookies.set("userID", res.userID, {expires: 7});
   };
@@ -68,6 +73,7 @@ export default function Login({ setToken }) {
           Sign In
         </Button>
       </Box>
+      {loading && <div><CircularProgress /></div>}
     </div>
   );
 }
