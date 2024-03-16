@@ -18,4 +18,4 @@ RUN cd ./server && npm install
 EXPOSE 3000
 
 # Define a custom command to run npm start in both directories
-CMD cd frontend && npm start & cd ../server && npm start
+CMD cd frontend && npm start & cd ./server && npm start
