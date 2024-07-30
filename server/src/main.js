@@ -13,7 +13,7 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(cors());
-const port = 8080;
+const port = 5050;
 
 dotenv.config();
 const client = new UntisClient();
