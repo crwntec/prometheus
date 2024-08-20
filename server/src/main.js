@@ -13,7 +13,7 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(cors());
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8080;
 
 dotenv.config();
 const client = new UntisClient();
@@ -64,18 +64,18 @@ app.get("/statistics/:date", async (req, res) => {
         return;
       }
       const regular = lessons.filter(
-        (lesson) => !lesson.isSubstitution && !lesson.isFree && !lesson.isEva
+        (lesson) => !lesson.isSubstitution && !lesson.isCancelled && !lesson.isEva
       );
       const substituted = lessons.filter((lesson) => lesson.isSubstitution);
-      const free = lessons.filter((lesson) => lesson.isFree);
+      const cancelled = lessons.filter((lesson) => lesson.isCancelled);
       const eva = lessons.filter((lesson) => lesson.isEva);
       if (client.teachers == undefined) await client.getElements(token, userID);
       const teachers = client.teachers.map((teacher) => {
         if (teacher.name === "---" || teacher.name === "E.V.A.") return;
         return {
           teacherName: teacher.name,
-          teacherFree: lessons.filter(
-            (l) => l.isFree && l.teacher === teacher.name
+          teacherCancelled: lessons.filter(
+            (l) => l.isCancelled && l.teacher === teacher.name
           ).length,
           teacherSubstituted: lessons.filter(
             (l) => l.isSubstitution && !l.isEva && l.teacher === teacher.name
@@ -84,7 +84,7 @@ app.get("/statistics/:date", async (req, res) => {
             (l) => l.isEva && l.teacher === teacher.name
           ).length,
           teacherAmnt: lessons.filter(
-            (l) => l.teacher === teacher.name && (l.isSubstitution || l.isFree)
+            (l) => l.teacher === teacher.name && (l.isSubstitution || l.isCancelled)
           ).length,
         };
       });
@@ -96,15 +96,15 @@ app.get("/statistics/:date", async (req, res) => {
             date: lesson.date,
             regular: lesson.isSubstitution ? 1 : 0,
             substituted: lesson.isSubstitution ? 1 : 0,
-            free: lesson.isFree ? 1 : 0,
+            cancelled: lesson.isCancelled ? 1 : 0,
             eva: lesson.isEva ? 1 : 0,
           });
         } else {
           const entry = days.find((d) => d.date === lesson.date);
-          entry.regular += !lesson.isSubstitution && !lesson.isFree ? 1 : 0;
+          entry.regular += !lesson.isSubstitution && !lesson.isCancelled ? 1 : 0;
           entry.substituted += lesson.isSubstitution ? 1 : 0;
           entry.eva += lesson.isEva ? 1 : 0;
-          entry.free += lesson.isFree ? 1 : 0;
+          entry.cancelled += lesson.isCancelled ? 1 : 0;
         }
       });
       const weeks = [];
@@ -123,15 +123,15 @@ app.get("/statistics/:date", async (req, res) => {
               .format("DD.MM")}`,
             regular: lesson.isSubstitution ? 1 : 0,
             substituted: lesson.isSubstitution ? 1 : 0,
-            free: lesson.isFree ? 1 : 0,
+            cancelled: lesson.isCancelled ? 1 : 0,
             eva: lesson.isEva ? 1 : 0,
           });
         } else {
           const entry = weeks.find((w) => w.weekNumber === weekNumber);
-          entry.regular += !lesson.isSubstitution && !lesson.isFree ? 1 : 0;
+          entry.regular += !lesson.isSubstitution && !lesson.isCancelled ? 1 : 0;
           entry.substituted += lesson.isSubstitution ? 1 : 0;
           entry.eva += lesson.isEva ? 1 : 0;
-          entry.free += lesson.isFree ? 1 : 0;
+          entry.cancelled += lesson.isCancelled ? 1 : 0;
         }
       });
 
@@ -140,13 +140,13 @@ app.get("/statistics/:date", async (req, res) => {
           { name: "Regulär", value: regular.length },
           { name: "Vertreten", value: substituted.length },
           { name: "E.V.A.", value: eva.length },
-          { name: "Frei", value: free.length },
+          { name: "Frei", value: cancelled.length },
         ],
         subjects: client.subjects.map((subject) => {
           return {
             subjName: subject.name,
-            subjFree: lessons.filter(
-              (l) => l.isFree && l.subject === subject.name
+            subjCancelled: lessons.filter(
+              (l) => l.isCancelled && l.subject === subject.name
             ).length,
             subjSubstituted: lessons.filter(
               (l) => l.isSubstitution && l.subject === subject.name
@@ -158,7 +158,7 @@ app.get("/statistics/:date", async (req, res) => {
               (l) =>
                 l.subject === subject.name &&
                 !l.isSubstitution &&
-                !l.isFree &&
+                !l.isCancelled &&
                 !l.isEva
             ).length,
           };

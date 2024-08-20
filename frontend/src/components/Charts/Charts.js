@@ -31,7 +31,7 @@ export default function Charts({ logout }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const COLORS_LESSONS = ["#12b546", "#f263df", "#b849a8", "#63e2f2"]; // Regular, Substituted, EVA, Free
+  const COLORS_LESSONS = ["#12b546", "#f263df", "#b849a8", "#63e2f2"]; // Regular, Substituted, EVA, Cancelled
 
 
   useEffect(() => {
@@ -151,7 +151,7 @@ export default function Charts({ logout }) {
                       />
                       <Bar
                         stackId="a"
-                        dataKey="subjFree"
+                        dataKey="subjCancelled"
                         name="Frei"
                         fill={COLORS_LESSONS[3]}
                       />
@@ -194,7 +194,7 @@ export default function Charts({ logout }) {
                       <Bar
                         stackId="a"
                         name="Frei"
-                        dataKey="teacherFree"
+                        dataKey="teacherCancelled"
                         fill={COLORS_LESSONS[3]}
                       />
                     </BarChart>
@@ -249,7 +249,7 @@ export default function Charts({ logout }) {
                         stackId="1"
                         type="monotone"
                         name="Frei"
-                        dataKey="free"
+                        dataKey="cancelled"
                         stroke={COLORS_LESSONS[3]}
                         fill={COLORS_LESSONS[3]}
                       />
@@ -301,7 +301,7 @@ export default function Charts({ logout }) {
                       <Area
                         stackId="1"
                         name="Frei"
-                        dataKey="free"
+                        dataKey="cancelled"
                         stroke={COLORS_LESSONS[3]}
                         fill={COLORS_LESSONS[3]}
                       />

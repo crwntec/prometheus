@@ -1,7 +1,7 @@
 import axios from "axios";
-import { convertToUntisDate, isEarlier, isLater, writeToFile } from "./util.js";
+import { convertToUntisDate, isInHoliday } from "./util.js";
 
-export const makeRequest = (date, sessionID, userID ) => {
+export const makeRequest = (date, sessionID, userID) => {
   if (!userID || !sessionID) return;
   return axios.get(
     "https://niobe.webuntis.com/WebUntis/api/public/timetable/weekly/data",
@@ -22,7 +22,7 @@ export const makeRequest = (date, sessionID, userID ) => {
   );
 };
 
-export const getIdentifiers = (username, password) => {
+export const getInfo = (username, password) => {
   const data = new URLSearchParams();
   data.append("school", "st-bernhard-gym");
   data.append("j_username", username);
@@ -42,15 +42,14 @@ export const getIdentifiers = (username, password) => {
       let sessionID = response.headers["set-cookie"][0]
         .split(";")[0]
         .split("=")[1];
-      
+
       return axios
         .get("https://niobe.webuntis.com/WebUntis/api/token/new", {
           headers: {
             authority: "niobe.webuntis.com",
             accept: "application/json, text/plain, */*",
             "accept-language": "en-GB,en-US;q=0.9,en;q=0.8,de;q=0.7",
-            cookie:
-              `JSESSIONID=${sessionID}; schoolname=^^_c3QtYmVybmhhcmQtZ3lt^^; traceId=1276915a9519cbe3bc8eaffb6a8dbef684f7ee2b`,
+            cookie: `JSESSIONID=${sessionID}; schoolname=^^_c3QtYmVybmhhcmQtZ3lt^^; traceId=1276915a9519cbe3bc8eaffb6a8dbef684f7ee2b`,
             referer: "https://niobe.webuntis.com/",
             compression: "true",
           },
@@ -59,18 +58,23 @@ export const getIdentifiers = (username, password) => {
           let token = response.data;
 
           return axios
-            .get("https://niobe.webuntis.com/WebUntis/api/rest/view/v1/app/data", {
-              headers: {
-                authority: "niobe.webuntis.com",
-                accept: "application/json, text/plain, */*",
-                "accept-language": "en-GB,en-US;q=0.9,en;q=0.8,de;q=0.7",
-                authorization: `Bearer ${token}`,
-              },
-              withCredentials: true,
-            })
+            .get(
+              "https://niobe.webuntis.com/WebUntis/api/rest/view/v1/app/data",
+              {
+                headers: {
+                  authority: "niobe.webuntis.com",
+                  accept: "application/json, text/plain, */*",
+                  "accept-language": "en-GB,en-US;q=0.9,en;q=0.8,de;q=0.7",
+                  authorization: `Bearer ${token}`,
+                },
+                withCredentials: true,
+              }
+            )
             .then((response) => {
-              let userID = response.data.user.person.id;
-              return { sessionID, userID };
+              const userID = response.data.user.person.id;
+              const currentSchoolYear = response.data.currentSchoolYear;
+              const holidays = response.data.holidays;
+              return { sessionID, userID, currentSchoolYear, holidays };
             });
         });
     })
@@ -79,7 +83,6 @@ export const getIdentifiers = (username, password) => {
       throw error; // Propagate the error further if needed
     });
 };
-
 
 export const getTeachers = (data) => {
   let teachers = [];
@@ -120,7 +123,7 @@ export const getSubjects = (data) => {
   return subjects;
 };
 
-export const getData = async (date, lookBack, sessionID, userID, callback) => {
+export const getData = async (date, lookBack, sessionID, userID, currentSchoolYear, holidays, callback) => {
   if (!sessionID) {
     console.log("No sessionID provided");
     return;
@@ -146,14 +149,14 @@ export const getData = async (date, lookBack, sessionID, userID, callback) => {
   combinedLessons = [].concat(...combinedLessons);
   callback(
     null,
-    combineToBlocks(combinedLessons),
+    combineToBlocks(combinedLessons, holidays),
     getTeachers(responses[0].data.data.result.data),
     getRooms(responses[0].data.data.result.data),
     getSubjects(responses[0].data.data.result.data)
   );
 };
 
-function combineToBlocks(lessons) {
+function combineToBlocks(lessons, holidays) {
   let blockLessons = [];
   lessons.forEach((lesson) => {
     if (blockLessons.find((l) => l.id == lesson.id && l.date == lesson.date))
@@ -165,15 +168,15 @@ function combineToBlocks(lessons) {
       blockLessons.push(lesson);
       return;
     }
-    // console.log(lesson.startTime, adjLesson.endTime);
     blockLessons.push({
       ...lesson,
       id: lesson.id,
       startTime: lesson.startTime,
       endTime: adjLesson.endTime,
+      isInHoliday: isInHoliday(lesson,holidays),
       isSubstitution: lesson.isSubstitution || adjLesson.isSubstitution,
+      isCancelled:( lesson.isCancelled || adjLesson.isCancelled) && !isInHoliday(lesson.date, holidays),
       isFree: lesson.isFree || adjLesson.isFree,
-      isCancelled: lesson.isCancelled || adjLesson.isCancelled,
     });
   });
 
@@ -196,7 +199,11 @@ function getLessonsForWeek(data) {
   let subjects = getSubjects(data);
   const key = Object.keys(data.elementPeriods)[0];
   data.elementPeriods[key].forEach((lesson) => {
-    const teacher = lesson.elements.find((e) => e.type === 2 && (lesson.cellState == 'SUBSTITUTION' ? e.orgId !== 0: true));
+    const teacher = lesson.elements.find(
+      (e) =>
+        e.type === 2 &&
+        (lesson.cellState == "SUBSTITUTION" ? e.orgId !== 0 : true)
+    );
     const room = lesson.elements.find((e) => e.type === 4);
     const subject = lesson.elements.find((e) => e.type === 3);
     lessons.push({
@@ -241,8 +248,8 @@ function getLessonsForWeek(data) {
       additionalInfo: lesson.periodText,
       isSubstitution: lesson.cellState === "SUBSTITUTION" && teacher.id !== 81,
       isEva: teacher ? teacher.id == 81 : false,
-      isFree: lesson.cellState === "CANCEL",
-      isCancelled: lesson.cellState == "FREE",
+      isCancelled: lesson.cellState === "CANCEL",
+      isFree: lesson.cellState == "FREE",
     });
   });
   return lessons;

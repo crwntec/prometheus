@@ -1,3 +1,4 @@
+import chalk from "chalk";
 import fs from "fs";
 import moment from "moment";
 export const writeToFile = (data) => {
@@ -23,4 +24,18 @@ export const isLater = (a, b) => {
     const dateA = moment(a, format);
     const dateB = moment(b, format);
     return dateA.isAfter(dateB);
+}
+
+let errorFlag = false;
+
+export const isInHoliday = (date, holidays) => {
+  if (holidays == undefined) {
+    if (!errorFlag) {
+      console.log(chalk.red("Error while checking for holidays. Holidays undefined"))
+      console.log(chalk.yellow("Please logout to fix this"))
+      errorFlag = true
+    }
+    return false
+  }
+ return holidays.find(o=>moment(o.start).isBefore(moment(date,"DD.MM.YYYY")) && moment(o.end).isAfter(moment(date,"DD.MM.YYYY")))
 }
