@@ -18,13 +18,16 @@ const port = process.env.PORT || 8080;
 dotenv.config();
 const client = new UntisClient();
 app.post("/login/", (req, res) => {
-  client
-    .init(req.body.username, req.body.password)
-    .then((identifiers) => {
-      setTimeout(() => {
-      res.send({sessionID: identifiers[0], userID: identifiers[1]})
-      }, 2000)
-    });
+  client.init(req.body.username, req.body.password).then((identifiers) => {
+    setTimeout(() => {
+      res.send({
+        sessionID: identifiers[0],
+        userID: identifiers[1],
+        allowedClass: identifiers[2],
+        currentSchoolYear: identifiers[3]
+      });
+    }, 2000);
+  });
   // .catch((error) => res.send(error));
 });
 app.get("/data/teachers", (req, res) => {
@@ -46,32 +49,51 @@ app.get("/lessons/:date", (req, res) => {
     }
   );
 });
-app.get("/statistics/:date", async (req, res) => {  
+app.get("/statistics/:date", async (req, res) => {
   const token = req.headers.authorization.split(" ")[1];
   const userID = req.query.userID;
-  if (token == undefined || userID === 'undefined') {
+  const classID = req.query.classID;
+  if (token == undefined) {
     res.sendStatus(403);
     return;
   }
+  if (client.useClass !== (classID == undefined)) {
+    await client.getElements(token, userID || classID);
+  }
+  client.useClass = classID !== undefined;
   await client.getLessonsForTimeframe(
     token,
     req.params.date,
     req.query.weeks,
-    userID,
+    userID || classID,
     async (error, lessons) => {
       if (error) {
+        if (error == 204) {
+          console.log(
+            chalk.yellow("Warning: No data present for given timeframe")
+          );
+          res.sendStatus(parseInt(204));
+          return;
+        }
+        if (error == 403) {
+          res.sendStatus(parseInt(403))
+          return;
+        }
+        console.log(chalk.red("Error while getting lessons: ", error));
         res.sendStatus(parseInt(error));
         return;
       }
       const regular = lessons.filter(
-        (lesson) => !lesson.isSubstitution && !lesson.isCancelled && !lesson.isEva
+        (lesson) =>
+          !lesson.isSubstitution && !lesson.isCancelled && !lesson.isEva
       );
       const substituted = lessons.filter((lesson) => lesson.isSubstitution);
+      const teams = lessons.filter((lesson)=>lesson.isTeams)
       const cancelled = lessons.filter((lesson) => lesson.isCancelled);
       const eva = lessons.filter((lesson) => lesson.isEva);
       if (client.teachers == undefined) await client.getElements(token, userID);
       const teachers = client.teachers.map((teacher) => {
-        if (teacher.name === "---" || teacher.name === "E.V.A.") return;
+        if (teacher.name === "---" || teacher.name === "E.V.A." || teacher.name === "TEAMS") return;
         return {
           teacherName: teacher.name,
           teacherCancelled: lessons.filter(
@@ -83,11 +105,16 @@ app.get("/statistics/:date", async (req, res) => {
           teacherEVA: lessons.filter(
             (l) => l.isEva && l.teacher === teacher.name
           ).length,
+          teacherTEAMS: lessons.filter(
+            (l) => l.isTeams && l.teacher === teacher.name
+          ).length,
           teacherAmnt: lessons.filter(
-            (l) => l.teacher === teacher.name && (l.isSubstitution || l.isCancelled)
+            (l) =>
+              l.teacher === teacher.name && (l.isSubstitution || l.isCancelled || l.isEva || l.isTeams)
           ).length,
         };
       });
+
 
       const days = [];
       lessons.forEach((lesson) => {
@@ -96,14 +123,17 @@ app.get("/statistics/:date", async (req, res) => {
             date: lesson.date,
             regular: lesson.isSubstitution ? 1 : 0,
             substituted: lesson.isSubstitution ? 1 : 0,
-            cancelled: lesson.isCancelled ? 1 : 0,
             eva: lesson.isEva ? 1 : 0,
+            teams: lesson.isTeams ? 1 : 0,
+            cancelled: lesson.isCancelled ? 1 : 0,
           });
         } else {
           const entry = days.find((d) => d.date === lesson.date);
-          entry.regular += !lesson.isSubstitution && !lesson.isCancelled ? 1 : 0;
+          entry.regular +=
+            !lesson.isSubstitution && !lesson.isCancelled ? 1 : 0;
           entry.substituted += lesson.isSubstitution ? 1 : 0;
           entry.eva += lesson.isEva ? 1 : 0;
+          entry.teams += lesson.isTeams ? 1 : 0;
           entry.cancelled += lesson.isCancelled ? 1 : 0;
         }
       });
@@ -123,14 +153,17 @@ app.get("/statistics/:date", async (req, res) => {
               .format("DD.MM")}`,
             regular: lesson.isSubstitution ? 1 : 0,
             substituted: lesson.isSubstitution ? 1 : 0,
-            cancelled: lesson.isCancelled ? 1 : 0,
             eva: lesson.isEva ? 1 : 0,
+            teams: lesson.isTeams ? 1 : 0,
+            cancelled: lesson.isCancelled ? 1 : 0,
           });
         } else {
           const entry = weeks.find((w) => w.weekNumber === weekNumber);
-          entry.regular += !lesson.isSubstitution && !lesson.isCancelled ? 1 : 0;
+          entry.regular +=
+            !lesson.isSubstitution && !lesson.isCancelled ? 1 : 0;
           entry.substituted += lesson.isSubstitution ? 1 : 0;
           entry.eva += lesson.isEva ? 1 : 0;
+          entry.teams += lesson.isTeams ? 1 : 0;
           entry.cancelled += lesson.isCancelled ? 1 : 0;
         }
       });
@@ -140,6 +173,7 @@ app.get("/statistics/:date", async (req, res) => {
           { name: "Regulär", value: regular.length },
           { name: "Vertreten", value: substituted.length },
           { name: "E.V.A.", value: eva.length },
+          { name: "TEAMS", value: teams.length },
           { name: "Frei", value: cancelled.length },
         ],
         subjects: client.subjects.map((subject) => {
@@ -153,6 +187,9 @@ app.get("/statistics/:date", async (req, res) => {
             ).length,
             subjEVA: lessons.filter(
               (l) => l.isEva && l.subject === subject.name
+            ).length,
+            subjTEAMS: lessons.filter(
+              (l) => l.isTeams && l.subject === subject.name
             ).length,
             subjRegular: lessons.filter(
               (l) =>

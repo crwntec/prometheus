@@ -1,5 +1,6 @@
 import axios from "axios";
 import { convertToUntisDate, isInHoliday } from "./util.js";
+import chalk from "chalk";
 
 export const makeRequest = (date, sessionID, userID) => {
   if (!userID || !sessionID) return;
@@ -7,7 +8,7 @@ export const makeRequest = (date, sessionID, userID) => {
     "https://niobe.webuntis.com/WebUntis/api/public/timetable/weekly/data",
     {
       params: {
-        elementType: 5,
+        elementType: userID.length > 3 || userID.length == undefined ? 5 : 1,
         elementId: userID,
         date: date,
         formatId: 8,
@@ -74,17 +75,46 @@ export const getInfo = (username, password) => {
               const userID = response.data.user.person.id;
               const currentSchoolYear = response.data.currentSchoolYear;
               const holidays = response.data.holidays;
-              return { sessionID, userID, currentSchoolYear, holidays };
+              return axios
+                .get(
+                  "https://niobe.webuntis.com/WebUntis/api/public/timetable/weekly/pageconfig",
+                  {
+                    params: {
+                      type: 5,
+                      date: "2024-08-23",
+                      isMyTimetableSelected: true,
+                    },
+                    headers: {
+                      authority: "niobe.webuntis.com",
+                      accept: "application/json, text/plain, */*",
+                      "accept-language": "en-GB,en-US;q=0.9,en;q=0.8,de;q=0.7",
+                      cookie: `JSESSIONID=${sessionID}; schoolname=^^_c3QtYmVybmhhcmQtZ3lt^^; traceId=1276915a9519cbe3bc8eaffb6a8dbef684f7ee2b`,
+                      referer: "https://niobe.webuntis.com/",
+                      compression: "true",
+                    },
+                  }
+                )
+                .then((response) => {
+                  const allowedClass = response.data.data.elements[0].klasseId;
+                  return {
+                    sessionID,
+                    userID,
+                    allowedClass,
+                    currentSchoolYear,
+                    holidays,
+                  };
+                });
             });
         });
     })
     .catch((error) => {
-      console.log(error);
+      console.log(chalk.red("error while processing information", error));
       throw error; // Propagate the error further if needed
     });
 };
 
 export const getTeachers = (data) => {
+  // console.log(data)
   let teachers = [];
   data.elements
     .filter((e) => e.type === 2)
@@ -123,7 +153,15 @@ export const getSubjects = (data) => {
   return subjects;
 };
 
-export const getData = async (date, lookBack, sessionID, userID, currentSchoolYear, holidays, callback) => {
+export const getData = async (
+  date,
+  lookBack,
+  sessionID,
+  userID,
+  currentSchoolYear,
+  holidays,
+  callback
+) => {
   if (!sessionID) {
     console.log("No sessionID provided");
     return;
@@ -138,7 +176,24 @@ export const getData = async (date, lookBack, sessionID, userID, currentSchoolYe
   dates = dates.map((d) => convertToUntisDate(d));
   let error = null;
   const promises = dates.map((d) => makeRequest(d, sessionID, userID));
-  const responses = await axios.all(promises);
+  const responses = await axios.all(promises).catch(e => {
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.log(error.response.data);
+      console.log(error.response.status);
+      console.log(error.response.headers);
+    } else if (error.request) {
+      // The request was made but no response was received
+      // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
+      // http.ClientRequest in node.js
+      console.log(error.request);
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.log("Error", error.message);
+    }
+    console.log(error.config);
+  });
   if (responses.some((response) => response.status === 403)) {
     callback(responses[0].status, null, null, null, null);
     return;
@@ -147,12 +202,19 @@ export const getData = async (date, lookBack, sessionID, userID, currentSchoolYe
     getLessonsForWeek(response.data.data.result.data)
   );
   combinedLessons = [].concat(...combinedLessons);
+  let filteredResponses = responses.filter(
+    (r) => r.data.data.result.data.elements.length > 1
+  );
+  if (filteredResponses.length == 0) {
+    callback(204, null, null, null, null);
+    return;
+  }
   callback(
     null,
     combineToBlocks(combinedLessons, holidays),
-    getTeachers(responses[0].data.data.result.data),
-    getRooms(responses[0].data.data.result.data),
-    getSubjects(responses[0].data.data.result.data)
+    getTeachers(filteredResponses[0].data.data.result.data),
+    getRooms(filteredResponses[0].data.data.result.data),
+    getSubjects(filteredResponses[0].data.data.result.data)
   );
 };
 
@@ -173,9 +235,11 @@ function combineToBlocks(lessons, holidays) {
       id: lesson.id,
       startTime: lesson.startTime,
       endTime: adjLesson.endTime,
-      isInHoliday: isInHoliday(lesson,holidays),
+      isInHoliday: isInHoliday(lesson, holidays),
       isSubstitution: lesson.isSubstitution || adjLesson.isSubstitution,
-      isCancelled:( lesson.isCancelled || adjLesson.isCancelled) && !isInHoliday(lesson.date, holidays),
+      isCancelled:
+        (lesson.isCancelled || adjLesson.isCancelled) &&
+        !isInHoliday(lesson.date, holidays),
       isFree: lesson.isFree || adjLesson.isFree,
     });
   });
@@ -246,7 +310,11 @@ function getLessonsForWeek(data) {
         : "Unbekannt",
       room: subject ? rooms.find((r) => r.id === room.id) : "Unbekannt",
       additionalInfo: lesson.periodText,
-      isSubstitution: lesson.cellState === "SUBSTITUTION" && teacher.id !== 81,
+      isSubstitution:
+        lesson.cellState === "SUBSTITUTION" &&
+        teacher.id !== 81 &&
+        teacher.id !== 411,
+      isTeams: lesson.cellState === "SUBSTITUTION" && teacher.id == 411,
       isEva: teacher ? teacher.id == 81 : false,
       isCancelled: lesson.cellState === "CANCEL",
       isFree: lesson.cellState == "FREE",

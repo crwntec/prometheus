@@ -7,7 +7,7 @@ import Button from "@mui/material/Button";
 import Cookies from "js-cookie";
 import { CircularProgress } from "@mui/material";
 
-export default function Login({ setToken }) {
+export default function Login({ setToken, setCurrentSchoolYear }) {
   const [loading, setLoading] = React.useState(false);
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,7 +19,9 @@ export default function Login({ setToken }) {
     });
     setLoading(false);
     setToken(res.sessionID);
-    Cookies.set("userID", res.userID, {expires: 7});
+    Cookies.set("userID", res.userID, { expires: 7 });
+    Cookies.set("classID", res.allowedClass, { expires: 7 });
+    setCurrentSchoolYear(res.currentSchoolYear)
   };
   const loginUser = async (credentials) => {
     return fetch(
@@ -73,7 +75,11 @@ export default function Login({ setToken }) {
           Sign In
         </Button>
       </Box>
-      {loading && <div><CircularProgress /></div>}
+      {loading && (
+        <div>
+          <CircularProgress />
+        </div>
+      )}
     </div>
   );
 }
